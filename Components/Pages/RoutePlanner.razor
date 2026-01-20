@@ -1,0 +1,202 @@
+﻿@page "/trasa"
+@rendermode InteractiveServer
+@inject Multimedialny_przewodnik_po_Uczelni.Data.AppDbContext Db
+@inject Multimedialny_przewodnik_po_Uczelni.Services.PathfindingService Pathfinding
+@inject Multimedialny_przewodnik_po_Uczelni.Services.UserSessionService UserSession
+@using Multimedialny_przewodnik_po_Uczelni.Models
+@using Microsoft.EntityFrameworkCore
+
+<PageTitle>Zaplanuj Trasę</PageTitle>
+
+<div class="container mt-4">
+    <div class="card shadow">
+        <div class="card-header bg-success text-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <h4 class="mb-0">🗺️ Zaplanuj drogę</h4>
+            @if (UserSession.IsWheelchairMode)
+            {
+                <span class="badge bg-light text-dark">Tryb wózka</span>
+            }
+        </div>
+        <div class="card-body">
+
+            <div class="row g-3 align-items-end">
+                <div class="col-md-5">
+                    <label class="form-label fw-bold">Punkt Startowy (A):</label>
+                    <select class="form-select" @bind="startNodeId">
+                        <option value="0">-- Wybierz punkt --</option>
+                        @if (UserSession.CurrentNodeId.HasValue)
+                        {
+                            <option value="-1" class="text-success fw-bold">
+                                📍 Moja obecna lokalizacja (@UserSession.CurrentNodeName)
+                            </option>
+                        }
+                        @foreach (var node in selectableNodes)
+                        {
+                            <option value="@node.Id">@node.Description (Piętro: @(node.Floor?.Name))</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="col-md-2 text-center">
+                    <span class="fs-2 text-muted d-none d-md-inline">➡️</span> <span class="fs-2 text-muted d-inline d-md-none">⬇️</span>
+                </div>
+
+                <div class="col-md-5">
+                    <label class="form-label fw-bold">Punkt Docelowy (B):</label>
+                    <select class="form-select" @bind="endNodeId">
+                        <option value="0">-- Wybierz cel --</option>
+                        @foreach (var node in selectableNodes)
+                        {
+                            <option value="@node.Id">@node.Description (Piętro: @(node.Floor?.Name))</option>
+                        }
+                    </select>
+                </div>
+            </div>
+
+            <button class="btn btn-primary w-100 mt-4 btn-lg" @onclick="CalculateRoute">
+                🚀 Wyznacz trasę
+            </button>
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-danger mt-3">@errorMessage</div>
+            }
+        </div>
+    </div>
+
+    @if (calculatedPath != null && calculatedPath.Any())
+    {
+        <div class="mt-4">
+            <h3 class="mb-3 text-primary">Twoja Trasa:</h3>
+            <div class="list-group shadow-sm">
+                @{
+                    int step = 1;
+                    LocationNode? prevNode = null;
+                }
+
+                @for (int i = 0; i < calculatedPath.Count; i++)
+                {
+                    var node = calculatedPath[i];
+                    var nextNode = (i + 1 < calculatedPath.Count) ? calculatedPath[i + 1] : null;
+                    string instruction = GenerateInstruction(node, nextNode, prevNode);
+
+                    <div class="list-group-item list-group-item-action d-flex align-items-center gap-3 p-3">
+                        <div class="badge bg-primary rounded-circle d-flex align-items-center justify-content-center" style="width:40px; height:40px; flex-shrink:0;">
+                            @step
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="d-flex justify-content-between flex-wrap">
+                                <h5 class="mb-1 fw-bold">@node.Description</h5>
+                                <small class="text-muted">Piętro: @(node.Floor?.Name ?? "Brak")</small>
+                            </div>
+
+                            <div class="mb-1">
+                                <span class="badge bg-light text-dark border">@TranslateType(node.Type)</span>
+                                @if (step == 1)
+                                {
+                                    <span class="badge bg-success ms-1">START</span>
+                                }
+                                @if (i == calculatedPath.Count - 1)
+                                {
+                                    <span class="badge bg-danger ms-1">META</span>
+                                }
+                            </div>
+
+                            @if (!string.IsNullOrEmpty(instruction))
+                            {
+                                <div class="alert alert-info py-1 px-2 mb-0 mt-2 d-inline-block small">
+                                    <i class="bi bi-sign-turn-right"></i> @instruction
+                                </div>
+                            }
+                        </div>
+
+                        @if (!string.IsNullOrEmpty(node.ImageUrl))
+                        {
+                            <img src="@node.ImageUrl" class="rounded border ms-2 d-none d-sm-block" style="width: 80px; height: 60px; object-fit: cover;" alt="" />
+                        }
+                    </div>
+
+                    prevNode = node;
+                    step++;
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    List<LocationNode> selectableNodes = new();
+    List<LocationNode> calculatedPath = new();
+    int startNodeId = 0;
+    int endNodeId = 0;
+    string errorMessage = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        selectableNodes = await Db.Nodes.Include(n => n.Floor).Where(n => n.Type != NodeType.Corridor).OrderBy(n => n.Floor.LevelNumber).ThenBy(n => n.Description).ToListAsync();
+        if (UserSession.CurrentNodeId.HasValue) startNodeId = -1;
+    }
+
+    async Task CalculateRoute()
+    {
+        errorMessage = ""; calculatedPath.Clear();
+        int actualStartId = startNodeId == -1 ? (UserSession.CurrentNodeId ?? 0) : startNodeId;
+        if (actualStartId == 0 || endNodeId == 0) { errorMessage = "Wybierz punkty!"; return; }
+
+        calculatedPath = await Pathfinding.FindPath(actualStartId, endNodeId, UserSession.IsWheelchairMode);
+        if (!calculatedPath.Any()) errorMessage = UserSession.IsWheelchairMode ? "Nie znaleziono trasy bez schodów." : "Brak trasy.";
+    }
+
+    string GenerateInstruction(LocationNode current, LocationNode? next, LocationNode? prev)
+    {
+        if (next == null) return "Jesteś u celu.";
+
+        if (current.FloorId != next.FloorId)
+        {
+            if (next.Floor.LevelNumber > current.Floor.LevelNumber) return "Wjedź/Wejdź piętro wyżej.";
+            else return "Zjedź/Zejdź piętro niżej.";
+        }
+
+        int dx = next.X - current.X;
+        int dy = next.Y - current.Y;
+
+        if (prev == null)
+        {
+            if (dy < 0) return "Kieruj się na Północ.";
+            if (dy > 0) return "Kieruj się na Południe.";
+            if (dx > 0) return "Kieruj się na Wschód.";
+            if (dx < 0) return "Kieruj się na Zachód.";
+        }
+        else
+        {
+            int prevDx = current.X - prev.X;
+            int prevDy = current.Y - prev.Y;
+
+            if (prevDx == dx && prevDy == dy) return "Idź prosto.";
+
+            if (prevDy < 0)
+            {
+                if (dx > 0) return "Skręć w prawo.";
+                if (dx < 0) return "Skręć w lewo.";
+            }
+            if (prevDy > 0)
+            { 
+                if (dx > 0) return "Skręć w lewo.";
+                if (dx < 0) return "Skręć w prawo.";
+            }
+            if (prevDx > 0)
+            { 
+                if (dy > 0) return "Skręć w prawo.";
+                if (dy < 0) return "Skręć w lewo.";
+            }
+            if (prevDx < 0)
+            { 
+                if (dy > 0) return "Skręć w lewo.";
+                if (dy < 0) return "Skręć w prawo.";
+            }
+        }
+        return "Idź do następnego punktu.";
+    }
+
+    string TranslateType(NodeType type) => type switch { NodeType.StartPoint => "Wejście", NodeType.Room => "Sala", NodeType.Elevator => "Winda", NodeType.Stairs => "Schody", _ => "Korytarz" };
+}

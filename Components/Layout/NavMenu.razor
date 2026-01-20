@@ -1,0 +1,128 @@
+﻿@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.EntityFrameworkCore
+
+<div class="top-row navbar navbar-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="">SWPW Nawigacja</a>
+
+        <button title="Nawigacja" class="navbar-toggler" @onclick="ToggleNavMenu">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+    </div>
+</div>
+
+<div class="@(showMenu ? "nav-scrollable mobile-nav-open" : "nav-scrollable")" @onclick="CloseNavMenu">
+    <nav class="flex-column" role="navigation" aria-label="Menu główne">
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Start
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="spacer">
+                <span class="bi bi-person-walking" aria-hidden="true"></span> Wirtualny Spacer
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="trasa">
+                <span class="bi bi-map-fill" aria-hidden="true"></span> Zaplanuj Trasę
+            </NavLink>
+        </div>
+
+        <AuthorizeView Roles="Admin">
+            <Authorized>
+                <div class="nav-item px-3 mt-4">
+                    <h6 class="text-uppercase small text-white-50 ms-3 mb-1">Administracja</h6>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin-map">
+                        <span class="bi bi-grid-3x3-gap-fill" aria-hidden="true"></span> Edytor Mapy
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="register">
+                        <span class="bi bi-person-plus-fill" aria-hidden="true"></span> Dodaj Użytkownika
+                    </NavLink>
+                </div>
+            </Authorized>
+        </AuthorizeView>
+
+        <div class="nav-item px-3 mt-3 border-top pt-3">
+            <h6 class="text-uppercase small text-white-50 ms-3 mb-2">Dostępność</h6>
+            <button class="nav-link btn btn-link text-white w-100 text-start mb-1" @onclick="ToggleContrast" @onclick:stopPropagation="true">
+                @if (UserSession.IsHighContrast)
+                {
+                    <span><i class="bi bi-eye-slash"></i> Wyłącz Kontrast</span>
+                }
+                else
+                {
+                    <span><i class="bi bi-eye"></i> Wysoki Kontrast</span>
+                }
+            </button>
+            <button class="nav-link btn btn-link text-white w-100 text-start mb-2" @onclick="ToggleWheelchair" @onclick:stopPropagation="true">
+                @if (UserSession.IsWheelchairMode)
+                {
+                    <span style="color:#90ee90;"><i class="bi bi-person-wheelchair"></i> Tryb: Bez schodów</span>
+                }
+                else
+                {
+                    <span><i class="bi bi-person-standing"></i> Tryb: Domyślny</span>
+                }
+            </button>
+        </div>
+
+        <div class="nav-item px-3 mt-2 border-top pt-3">
+            <AuthorizeView>
+                <Authorized>
+                    <div class="px-3 text-white mb-2 small">
+                        Witaj, <strong class="text-warning">@context.User.Identity?.Name</strong>
+                    </div>
+                    <button class="nav-link btn btn-link text-white w-100 text-start" @onclick="Logout">
+                        <span class="bi bi-box-arrow-right"></span> Wyloguj się
+                    </button>
+                </Authorized>
+                <NotAuthorized>
+                    <NavLink class="nav-link" href="login">
+                        <span class="bi bi-lock-fill"></span> Zaloguj się
+                    </NavLink>
+                </NotAuthorized>
+            </AuthorizeView>
+        </div>
+    </nav>
+</div>
+
+@code {
+    [Inject] private Multimedialny_przewodnik_po_Uczelni.Services.CustomAuthStateProvider AuthProvider { get; set; } = default!;
+    [Inject] private NavigationManager Nav { get; set; } = default!;
+    [Inject] private Multimedialny_przewodnik_po_Uczelni.Data.AppDbContext Db { get; set; } = default!;
+    [Inject] private Multimedialny_przewodnik_po_Uczelni.Services.UserSessionService UserSession { get; set; } = default!;
+
+    private bool showMenu = false;
+
+    private void ToggleNavMenu()
+    {
+        showMenu = !showMenu;
+    }
+
+    private void CloseNavMenu()
+    {
+        showMenu = false;
+    }
+
+    protected override async Task OnInitializedAsync() { }
+
+    private async Task ToggleContrast()
+    {
+        UserSession.ToggleContrast();
+        var authState = await AuthProvider.GetAuthenticationStateAsync();
+        var username = authState.User.Identity?.Name;
+        if (!string.IsNullOrEmpty(username))
+        {
+            var user = await Db.Users.FirstOrDefaultAsync(u => u.Username == username);
+            if (user != null) { user.IsHighContrast = UserSession.IsHighContrast; await Db.SaveChangesAsync(); }
+        }
+    }
+    private void ToggleWheelchair() => UserSession.ToggleWheelchairMode();
+    private void Logout() { AuthProvider.Logout(); Nav.NavigateTo("/"); }
+}

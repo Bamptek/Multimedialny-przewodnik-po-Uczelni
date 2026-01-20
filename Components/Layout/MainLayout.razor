@@ -1,0 +1,36 @@
+﻿@inherits LayoutComponentBase
+@implements IDisposable
+@inject Multimedialny_przewodnik_po_Uczelni.Services.UserSessionService UserSession
+
+<div class="page @(UserSession.IsHighContrast ? "high-contrast" : "")">
+    <div class="sidebar">
+        <NavMenu />
+    </div>
+
+    <main>
+        <header class="top-row px-4 justify-content-end">
+            <h1 class="visually-hidden">System Nawigacji SWPW</h1>
+            <span class="text-muted small d-none d-sm-inline">Multimedialny Przewodnik</span>
+        </header>
+
+        <article class="content px-4">
+            @Body
+        </article>
+
+        <footer class="text-center p-3 text-muted small mt-auto border-top">
+            &copy; 2026 SWPW - System Nawigacji
+        </footer>
+    </main>
+</div>
+
+@code {
+    protected override void OnInitialized()
+    {
+        UserSession.OnChange += StateHasChanged;
+    }
+
+    public void Dispose()
+    {
+        UserSession.OnChange -= StateHasChanged;
+    }
+}

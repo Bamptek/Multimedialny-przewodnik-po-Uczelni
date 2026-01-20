@@ -1,0 +1,81 @@
+﻿@page "/register"
+@rendermode InteractiveServer
+@inject Multimedialny_przewodnik_po_Uczelni.Services.UserService UserService
+@inject NavigationManager Nav
+
+<PageTitle>Rejestracja</PageTitle>
+
+<div class="row justify-content-center mt-5">
+    <div class="col-md-5">
+        <div class="card shadow">
+            <div class="card-header bg-success text-white">
+                Rejestracja nowego użytkownika
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label>Nazwa użytkownika:</label>
+                    <input type="text" @bind="username" class="form-control" placeholder="Twój login" />
+                </div>
+
+                <div class="mb-3">
+                    <label>Hasło:</label>
+                    <input type="password" @bind="password" class="form-control" placeholder="Hasło" />
+                </div>
+
+                <div class="mb-3">
+                    <label>Powtórz hasło:</label>
+                    <input type="password" @bind="confirmPassword" class="form-control" placeholder="Powtórz hasło" />
+                </div>
+
+                @if (!string.IsNullOrEmpty(message))
+                {
+                    <div class="alert @alertClass">@message</div>
+                }
+
+                <button class="btn btn-success w-100" @onclick="HandleRegistration">Zarejestruj się</button>
+                <a href="/login" class="d-block text-center mt-2">Masz już konto? Zaloguj się</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string username = "";
+    private string password = "";
+    private string confirmPassword = "";
+    private string message = "";
+    private string alertClass = "";
+
+    private async Task HandleRegistration()
+    {
+        if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
+        {
+            message = "Wypełnij wszystkie pola!";
+            alertClass = "alert-danger";
+            return;
+        }
+
+        if (password != confirmPassword)
+        {
+            message = "Hasła nie są identyczne!";
+            alertClass = "alert-danger";
+            return;
+        }
+
+        bool success = await UserService.RegisterUserAsync(username, password, "User");
+
+        if (success)
+        {
+            message = "Konto utworzone pomyślnie! Możesz się zalogować.";
+            alertClass = "alert-success";
+            username = "";
+            password = "";
+            confirmPassword = "";
+        }
+        else
+        {
+            message = "Taki użytkownik już istnieje.";
+            alertClass = "alert-danger";
+        }
+    }
+}

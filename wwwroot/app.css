@@ -1,0 +1,305 @@
+:root {
+    /* --- KOLORYSTYKA UCZELNI --- */
+    --primary-color: #003366;
+    --secondary-color: #0056b3;
+    --accent-color: #ffcc00;
+    --text-dark: #212529;
+    --text-light: #f8f9fa;
+    --bg-light: #f4f6f9;
+    --shadow: 0 4px 8px rgba(0, 51, 102, 0.15);
+}
+
+html, body {
+    height: 100%;
+    margin: 0;
+    font-family: 'Segoe UI', Helvetica, Arial, sans-serif;
+    background-color: var(--bg-light);
+    color: var(--text-dark);
+}
+
+/* --- UK£AD G£ÓWNY --- */
+.page {
+    display: flex;
+    flex-direction: row;
+    min-height: 100vh;
+}
+
+main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.content {
+    flex: 1;
+    padding-bottom: 20px;
+}
+
+/* --- SIDEBAR (WERSJA KOMPUTEROWA) --- */
+.sidebar {
+    background: linear-gradient(180deg, var(--primary-color) 0%, #002244 100%);
+    color: white;
+    width: 250px;
+    z-index: 1000;
+}
+
+    .sidebar .top-row {
+        background-color: rgba(0,0,0,0.4);
+        height: 3.5rem;
+        display: flex;
+        align-items: center;
+    }
+
+    .sidebar .navbar-brand {
+        font-size: 1.1rem;
+        margin-left: 1rem;
+        font-weight: bold;
+        color: white;
+    }
+
+    .sidebar .nav-link {
+        color: rgba(255, 255, 255, 0.8);
+        border-radius: 4px;
+        margin-bottom: 5px;
+    }
+
+        .sidebar .nav-link.active, .sidebar .nav-link:hover {
+            background-color: rgba(255, 255, 255, 0.15);
+            color: white;
+        }
+
+/* --- RESPONSIVE / MOBILE (EKRANY PONI¯EJ 768px) --- */
+@media (max-width: 768px) {
+    .page {
+        flex-direction: column;
+    }
+
+    .sidebar {
+        width: 100%;
+        height: auto;
+        position: relative;
+        z-index: 10000; /* Sidebar musi byæ nad treœci¹ */
+    }
+
+        /* Pasek z logo i hamburgerem - Musi byæ NAJWY¯EJ, ¿eby hamburger zawsze dzia³a³ */
+        .sidebar .top-row {
+            justify-content: space-between;
+            padding-right: 1rem;
+            position: relative;
+            z-index: 100001;
+        }
+
+    /* --- NAPRAWA MENU MOBILNEGO --- */
+
+    .nav-scrollable {
+        display: none; /* Domyœlnie ukryte */
+    }
+
+        .nav-scrollable.mobile-nav-open {
+            display: block !important;
+            position: fixed; /* ZMIANA NA FIXED - przykleja do ekranu */
+            top: 3.5rem; /* Zaraz pod paskiem z logo */
+            left: 0;
+            right: 0;
+            bottom: 0; /* Rozci¹gnij na sam dó³ ekranu */
+            background: linear-gradient(180deg, var(--primary-color) 0%, #002244 100%);
+            padding-bottom: 20px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+            z-index: 100000; /* Bardzo wysoki Z-INDEX - przykrywa wszystko */
+            overflow-y: auto; /* Pozwala przewijaæ menu jeœli jest d³ugie */
+        }
+
+    /* Ukrywamy górny pasek w treœci g³ównej */
+    main .top-row {
+        display: none;
+    }
+
+    .content.px-4 {
+        padding: 10px !important;
+    }
+
+    /* Naprawa mapy na ma³ym ekranie */
+    .map-container {
+        overflow-x: auto;
+    }
+
+    .d-flex.justify-content-center.flex-wrap.gap-3 > button {
+        width: 100% !important;
+    }
+}
+
+/* --- KOMPUTER (EKRANY POWY¯EJ 769px) --- */
+@media (min-width: 769px) {
+    .sidebar .navbar-toggler {
+        display: none;
+    }
+
+    .nav-scrollable {
+        display: block !important;
+    }
+}
+
+/* --- RESZTA STYLÓW --- */
+:focus-visible {
+    outline: 3px solid var(--accent-color);
+    outline-offset: 2px;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    color: var(--primary-color);
+    font-weight: 700;
+}
+
+a {
+    color: var(--secondary-color);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+    a:hover {
+        color: var(--primary-color);
+        text-decoration: underline;
+    }
+
+.btn {
+    border-radius: 6px;
+    padding: 10px 20px;
+    font-weight: 600;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.btn-primary {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+    .btn-primary:hover {
+        background-color: var(--secondary-color);
+        transform: translateY(-2px);
+    }
+
+.btn-success {
+    background-color: #198754;
+    border-color: #198754;
+}
+
+.btn-outline-danger {
+    color: #dc3545;
+    border-color: #dc3545;
+}
+
+    .btn-outline-danger:hover {
+        background-color: #dc3545;
+        color: white;
+    }
+
+.card {
+    border: none;
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+    background: white;
+    overflow: hidden;
+}
+
+.card-header {
+    background-color: var(--primary-color);
+    color: white;
+    border-bottom: 2px solid var(--secondary-color);
+    padding: 1rem 1.5rem;
+}
+
+.card-body {
+    padding: 1.5rem;
+}
+
+.map-container {
+    overflow: auto;
+    border: 2px solid #ccc;
+    background-color: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
+}
+
+.map-cell {
+    width: 50px;
+    height: 50px;
+    background-color: #fff;
+    border: 1px solid #dee2e6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 10px;
+    position: relative;
+    user-select: none;
+    transition: all 0.1s ease;
+}
+
+    .map-cell:hover {
+        background-color: #e9ecef;
+        transform: scale(1.05);
+        z-index: 5;
+    }
+
+    .map-cell.selected {
+        outline: 3px solid #ffcc00;
+        background-color: rgba(255, 204, 0, 0.1) !important;
+        z-index: 10;
+        animation: pulse-border 1.5s infinite;
+    }
+
+@keyframes pulse-border {
+    0% {
+        box-shadow: 0 0 0 0 rgba(255, 204, 0, 0.7);
+    }
+
+    70% {
+        box-shadow: 0 0 0 6px rgba(255, 204, 0, 0);
+    }
+
+    100% {
+        box-shadow: 0 0 0 0 rgba(255, 204, 0, 0);
+    }
+}
+
+.map-cell.active {
+    font-weight: bold;
+    color: #333;
+    border: 2px solid #ccc;
+}
+
+.high-contrast {
+    background-color: #000 !important;
+    color: #ff0 !important;
+}
+
+    .high-contrast body, .high-contrast .page, .high-contrast .sidebar, .high-contrast .card, .high-contrast .card-header,
+    .high-contrast .nav-scrollable, .high-contrast header, .high-contrast main, .high-contrast footer,
+    .high-contrast .btn, .high-contrast .map-container, .high-contrast .map-cell {
+        background-color: #000 !important;
+        background-image: none !important;
+        color: #ff0 !important;
+        border-color: #ff0 !important;
+        box-shadow: none !important;
+    }
+
+    .high-contrast .btn {
+        border: 2px solid #ff0 !important;
+    }
+
+    .high-contrast a, .high-contrast .nav-link {
+        color: #0f0 !important;
+        text-decoration: underline !important;
+    }
+
+    .high-contrast img {
+        border: 4px solid #ff0 !important;
+        filter: contrast(150%) grayscale(100%);
+    }
+
+    .high-contrast .map-cell.selected {
+        outline: 3px solid #0f0 !important;
+        animation: none;
+    }

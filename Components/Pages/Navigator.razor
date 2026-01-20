@@ -1,0 +1,153 @@
+﻿@page "/spacer"
+@rendermode InteractiveServer
+@inject Multimedialny_przewodnik_po_Uczelni.Data.AppDbContext Db
+@inject Multimedialny_przewodnik_po_Uczelni.Services.UserSessionService UserSession
+@using Multimedialny_przewodnik_po_Uczelni.Models
+@using Microsoft.EntityFrameworkCore
+
+<PageTitle>Wirtualny Spacer</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="h3 text-primary">Wirtualny Spacer</h2>
+    <button class="btn btn-outline-danger" @onclick="ResetToStart" aria-label="Restart">🔄 Start</button>
+</div>
+
+@if (currentNode != null)
+{
+    <section class="card shadow" tabindex="0" @onkeydown="HandleKeyDown" @ref="container" style="outline: none;">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h3 class="h5 mb-0 text-white">@currentNode.Description</h3>
+            <div class="text-white small">Kierunek patrzenia: @GetOrientationName(currentOrientation)</div>
+        </div>
+
+        <div class="card-body text-center bg-white">
+
+            <figure class="position-relative d-inline-block">
+                <img src="@currentNode.ImageUrl" alt="@currentNode.AltText" class="img-fluid rounded border shadow-sm" style="max-height: 550px;" />
+            </figure>
+
+            @if (!string.IsNullOrEmpty(currentNode.AudioUrl))
+            {
+                <div class="my-3 p-3 bg-light rounded border">
+                    <label class="fw-bold d-block mb-1 text-primary">🎧 Przewodnik głosowy:</label>
+                    <audio controls style="width: 100%; max-width: 400px;">
+                        <source src="@currentNode.AudioUrl" type="audio/mpeg">
+                        <source src="@currentNode.AudioUrl" type="audio/wav">
+                        Brak obsługi audio.
+                    </audio>
+                </div>
+            }
+
+            <hr class="my-4" />
+
+            <nav>
+                <div class="d-flex justify-content-center flex-wrap gap-3">
+                    @foreach (var edge in currentNode.OutgoingEdges)
+                    {
+                        var relativeDir = CalculateRelativeDirection(edge.Direction, currentOrientation);
+                        bool isDisabled = UserSession.IsWheelchairMode && edge.IsStairs;
+
+                        <button class="btn btn-lg @GetButtonClass(relativeDir)"
+                                style="min-width: 200px; padding: 15px; @(isDisabled ? "opacity:0.6;cursor:not-allowed":"")"
+                                @onclick="() => { if(!isDisabled) MoveTo(edge); }"
+                                disabled="@isDisabled">
+
+                            <div class="fs-1 mb-1">@GetButtonIcon(relativeDir)</div>
+                            <div class="fw-bold text-uppercase small">@GetButtonLabel(relativeDir)</div>
+                            <div class="small mt-1 opacity-75 border-top pt-1">@edge.ToNode.Description</div>
+
+                            @if (isDisabled)
+                            {
+                                <div class="badge bg-danger mt-2">⛔ Schody</div>
+                            }
+                        </button>
+                    }
+                </div>
+            </nav>
+        </div>
+        <div class="card-footer text-muted small text-center bg-light">
+            Sterowanie: Strzałki | Wózek: <strong>@(UserSession.IsWheelchairMode ? "WŁ" : "WYŁ")</strong>
+        </div>
+    </section>
+}
+else
+{
+    <div class="alert alert-info">Ładowanie mapy...</div>
+}
+
+@code {
+    LocationNode? currentNode;
+    int currentOrientation = 0;
+    ElementReference container;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (UserSession.CurrentNodeId.HasValue) await LoadNode(UserSession.CurrentNodeId.Value);
+        else await LoadStartNode();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender) { if (firstRender && currentNode != null) await container.FocusAsync(); }
+
+    async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (currentNode == null) return;
+        Direction? moveDir = e.Key switch { "ArrowUp" => Direction.Forward, "ArrowDown" => Direction.Backward, "ArrowLeft" => Direction.Left, "ArrowRight" => Direction.Right, _ => null };
+
+        if (moveDir.HasValue)
+        {
+            foreach (var edge in currentNode.OutgoingEdges)
+            {
+                if (UserSession.IsWheelchairMode && edge.IsStairs) continue;
+                var relative = CalculateRelativeDirection(edge.Direction, currentOrientation);
+                if (relative == moveDir.Value) { await MoveTo(edge); return; }
+            }
+        }
+    }
+
+    async Task LoadStartNode()
+    {
+        var sn = await Db.Nodes.Include(n => n.OutgoingEdges).ThenInclude(e => e.ToNode).Include(n => n.Floor).FirstOrDefaultAsync(n => n.Type == NodeType.StartPoint)
+                 ?? await Db.Nodes.Include(n => n.OutgoingEdges).ThenInclude(e => e.ToNode).Include(n => n.Floor).FirstOrDefaultAsync();
+        if (sn != null) await UpdateCurrentNode(sn);
+    }
+
+    async Task ResetToStart() => await LoadStartNode();
+
+    async Task MoveTo(Edge edge)
+    {
+        await LoadNode(edge.ToNodeId);
+        await container.FocusAsync();
+    }
+
+    async Task LoadNode(int id)
+    {
+        var node = await Db.Nodes.Include(n => n.OutgoingEdges).ThenInclude(e => e.ToNode).Include(n => n.Floor).FirstOrDefaultAsync(n => n.Id == id);
+        if (node != null) await UpdateCurrentNode(node);
+    }
+
+    Task UpdateCurrentNode(LocationNode node)
+    {
+        currentNode = node;
+        currentOrientation = MapDirectionToInt(node.BaseOrientation);
+        UserSession.CurrentNodeId = node.Id;
+        UserSession.CurrentNodeName = node.Description;
+        return Task.CompletedTask;
+    }
+
+    int MapDirectionToInt(Direction d) => d switch { Direction.Forward => 0, Direction.Right => 1, Direction.Backward => 2, Direction.Left => 3, _ => 0 };
+
+    Direction CalculateRelativeDirection(Direction absDir, int userOrien)
+    {
+        if (absDir == Direction.Up || absDir == Direction.Down) return absDir;
+        int abs = MapDirectionToInt(absDir);
+        int rel = (abs - userOrien + 4) % 4;
+        return rel switch { 0 => Direction.Forward, 1 => Direction.Right, 2 => Direction.Backward, 3 => Direction.Left, _ => Direction.Forward };
+    }
+
+    string GetOrientationName(int o) => o switch { 0 => "Północ", 1 => "Wschód", 2 => "Południe", 3 => "Zachód", _ => "" };
+    string GetCompassIcon(int o) => o switch { 0 => "N", 1 => "E", 2 => "S", 3 => "W", _ => "" };
+
+    string GetButtonClass(Direction d) => d switch { Direction.Forward => "btn-success", Direction.Left => "btn-primary", Direction.Right => "btn-primary", Direction.Backward => "btn-outline-danger", Direction.Up => "btn-info text-white", Direction.Down => "btn-info text-white", _ => "btn-secondary" };
+    string GetButtonLabel(Direction d) => d switch { Direction.Forward => "Prosto", Direction.Left => "W Lewo", Direction.Right => "W Prawo", Direction.Backward => "Cofnij", Direction.Up => "Góra", Direction.Down => "Dół", _ => "Idź" };
+    string GetButtonIcon(Direction d) => d switch { Direction.Forward => "⬆", Direction.Left => "⬅", Direction.Right => "➡", Direction.Backward => "⬇", Direction.Up => "↗", Direction.Down => "↘", _ => "⏺" };
+}

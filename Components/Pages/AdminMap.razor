@@ -1,0 +1,283 @@
+﻿@page "/admin-map"
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@attribute [Authorize(Roles = "Admin")]
+@rendermode InteractiveServer
+@inject Multimedialny_przewodnik_po_Uczelni.Data.AppDbContext Db
+@using Microsoft.EntityFrameworkCore
+@using Multimedialny_przewodnik_po_Uczelni.Models
+
+<h3>Edytor Mapy</h3>
+
+@if (!floors.Any())
+{
+    <div class="alert alert-warning">Baza pusta. Dodaj pierwszy budynek.</div>
+    <div class="card p-4 shadow-sm">
+        <input @bind="newBuildingName" class="form-control mb-2" placeholder="Nazwa Budynku (np. Rektorat)" />
+        <input @bind="newFloorName" class="form-control mb-2" placeholder="Nazwa Piętra (np. Parter)" />
+        <button class="btn btn-success" @onclick="CreateBuildingStructure">🚀 Utwórz Strukturę</button>
+    </div>
+}
+else
+{
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card mb-3 p-3 bg-light border-0 shadow-sm">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="d-flex gap-2">
+                        <select class="form-select w-auto" @onchange="ChangeFloor" value="@currentFloorId">
+                            @foreach (var f in floors)
+                            {
+                                <option value="@f.Id">@f.Building.Name - @f.Name</option>
+                            }
+                        </select>
+                        <button class="btn btn-outline-success" @onclick="() => showFloorCreator = !showFloorCreator" title="Dodaj nowe piętro">➕</button>
+                    </div>
+
+                    <button class="btn btn-outline-danger btn-sm" @onclick="DeleteCurrentFloor" title="Usuń to piętro i wszystkie jego punkty">
+                        🗑️ Usuń to piętro
+                    </button>
+                </div>
+
+                @if (showFloorCreator)
+                {
+                    <div class="mt-2 input-group">
+                        <input @bind="nextFloorName" class="form-control" placeholder="Nazwa piętra (np. I Piętro)" />
+                        <input type="number" @bind="nextLevelNumber" class="form-control" placeholder="Nr poziomu" style="max-width: 80px;" />
+                        <button class="btn btn-success" @onclick="AddNewFloor">Zapisz</button>
+                    </div>
+                }
+            </div>
+
+            <div class="map-container" style="max-height: 600px;">
+                <div style="display: grid; grid-template-columns: repeat(@(maxX - minX + 1), 50px); gap: 2px; justify-content: center;">
+                    @for (int y = minY; y <= maxY; y++)
+                    {
+                        @for (int x = minX; x <= maxX; x++)
+                        {
+                            int lx = x, ly = y;
+                            var node = GetNodeAt(lx, ly);
+                            bool active = node != null;
+                            bool sel = (selectedX == lx && selectedY == ly);
+
+                            string typeClass = active ? node.Type switch
+                            {
+                                NodeType.StartPoint => "bg-success text-white",
+                                NodeType.Elevator => "bg-primary text-white",
+                                NodeType.Stairs => "bg-warning text-dark",
+                                _ => "bg-white"
+                            } : "";
+
+                            <div class="map-cell @(sel ? "selected" : "") @typeClass @(active ? "active" : "")"
+                                 @onclick="() => SelectCell(lx, ly)"
+                                 title="X: @lx, Y: @ly">
+
+                                @if (active)
+                                {
+                                    <strong>@node.Id</strong>
+
+                                    @if (IsConnectedTo(node, lx, ly - 1))
+                                    {
+                                        <span style="position:absolute; top:-6px; color:inherit;">▲</span>
+                                    }
+                                    @if (IsConnectedTo(node, lx, ly + 1))
+                                    {
+                                        <span style="position:absolute; bottom:-6px; color:inherit;">▼</span>
+                                    }
+                                    @if (IsConnectedTo(node, lx - 1, ly))
+                                    {
+                                        <span style="position:absolute; left:-3px; color:inherit;">◀</span>
+                                    }
+                                    @if (IsConnectedTo(node, lx + 1, ly))
+                                    {
+                                        <span style="position:absolute; right:-3px; color:inherit;">▶</span>
+                                    }
+
+                                    @if (HasVerticalConnection(node))
+                                    {
+                                        <span style="position:absolute; top:2px; right:2px; font-size:16px; color:#0dcaf0;">↕</span>
+                                    }
+                                }
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+            <div class="text-muted small mt-2">
+                <i class="bi bi-info-circle"></i> Kliknij w kratkę, aby ją zaznaczyć. Zielony: Start, Niebieski: Winda, Żółty: Schody.
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card shadow-sm sticky-top" style="top: 20px;">
+                <div class="card-header text-white bg-primary d-flex justify-content-between">
+                    <span>Edycja</span>
+                    <span class="badge bg-light text-dark">X:@selectedX, Y:@selectedY</span>
+                </div>
+                <div class="card-body">
+                    @if (selectedNode == null)
+                    {
+                        <p class="text-muted text-center py-3">Puste pole.</p>
+                        <button class="btn btn-outline-primary w-100" @onclick="() => CreateNode(NodeType.Corridor)">+ Utwórz tutaj punkt</button>
+                    }
+                    else
+                    {
+                        <div class="mb-2">
+                            <label class="small fw-bold">Typ punktu:</label>
+                            <select @bind="selectedNode.Type" class="form-select form-select-sm">
+                                <option value="@NodeType.Corridor">Korytarz</option>
+                                <option value="@NodeType.Room">Sala / Pokój</option>
+                                <option value="@NodeType.Elevator">Winda</option>
+                                <option value="@NodeType.Stairs">Schody</option>
+                                <option value="@NodeType.StartPoint">WEJŚCIE (Start)</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-2 p-2 border rounded bg-light">
+                            <label class="small fw-bold text-primary">Kierunek zdjęcia:</label>
+                            <select @bind="selectedNode.BaseOrientation" class="form-select form-select-sm">
+                                <option value="@Direction.Forward">Północ (Góra ↑)</option>
+                                <option value="@Direction.Right">Wschód (Prawo →)</option>
+                                <option value="@Direction.Backward">Południe (Dół ↓)</option>
+                                <option value="@Direction.Left">Zachód (Lewo ←)</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-2"><label class="small">Opis:</label><input @bind="selectedNode.Description" class="form-control form-control-sm" /></div>
+                        <div class="mb-2"><label class="small">Img URL:</label><input @bind="selectedNode.ImageUrl" class="form-control form-control-sm" /></div>
+                        <div class="mb-2"><label class="small">Audio URL:</label><input @bind="selectedNode.AudioUrl" class="form-control form-control-sm" /></div>
+
+                        <button class="btn btn-primary btn-sm w-100 mb-3" @onclick="SaveNode">💾 Zapisz zmiany</button>
+
+                        <label class="small fw-bold">Połączenia (Sąsiedzi):</label>
+                        <div class="d-flex justify-content-center gap-1 mb-3">
+                            <button class="btn btn-sm @GetConnBtnClass(-1,0)" @onclick="()=>ToggleConnection(-1,0,Direction.Left)">⬅</button>
+                            <button class="btn btn-sm @GetConnBtnClass(0,-1)" @onclick="()=>ToggleConnection(0,-1,Direction.Forward)">⬆</button>
+                            <button class="btn btn-sm @GetConnBtnClass(0,1)" @onclick="()=>ToggleConnection(0,1,Direction.Backward)">⬇</button>
+                            <button class="btn btn-sm @GetConnBtnClass(1,0)" @onclick="()=>ToggleConnection(1,0,Direction.Right)">➡</button>
+                        </div>
+
+                        @if (selectedNode.Type == NodeType.Elevator || selectedNode.Type == NodeType.Stairs)
+                        {
+                            <div class="d-grid gap-1 mt-2">
+                                <button class="btn btn-sm btn-outline-info" @onclick="()=>ToggleVert(Direction.Up)">🔼 Połącz z piętrem wyżej</button>
+                                <button class="btn btn-sm btn-outline-info" @onclick="()=>ToggleVert(Direction.Down)">🔽 Połącz z piętrem niżej</button>
+                            </div>
+                        }
+
+                        <hr />
+                        <button class="btn btn-danger btn-sm w-100" @onclick="DeleteNode">🗑️ Usuń punkt</button>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    List<Floor> floors = new(); int currentFloorId; List<LocationNode> currentNodes = new();
+    string newBuildingName = "", newFloorName = "", nextFloorName = ""; int nextLevelNumber = 0; bool showFloorCreator = false;
+    int minX, maxX, minY, maxY, selectedX, selectedY; LocationNode? selectedNode;
+
+    protected override async Task OnInitializedAsync() => await LoadData();
+
+    async Task LoadData()
+    {
+        floors = await Db.Floors.Include(f => f.Building).OrderBy(f => f.LevelNumber).ToListAsync();
+        if (floors.Any())
+        {
+            if (!floors.Any(f => f.Id == currentFloorId)) currentFloorId = floors.First().Id;
+            await LoadNodes();
+        }
+        else
+        {
+            currentFloorId = 0;
+            currentNodes.Clear();
+        }
+    }
+    async Task ChangeFloor(ChangeEventArgs e) { if (int.TryParse(e.Value?.ToString(), out int id)) { currentFloorId = id; selectedNode = null; await LoadNodes(); } }
+    async Task LoadNodes()
+    {
+        currentNodes = await Db.Nodes.Include(n => n.OutgoingEdges).Where(n => n.FloorId == currentFloorId).ToListAsync();
+        if (!currentNodes.Any()) { minX = -3; maxX = 3; minY = -3; maxY = 3; } else { minX = currentNodes.Min(n => n.X) - 1; maxX = currentNodes.Max(n => n.X) + 1; minY = currentNodes.Min(n => n.Y) - 1; maxY = currentNodes.Max(n => n.Y) + 1; }
+        if (selectedNode != null) selectedNode = GetNodeAt(selectedX, selectedY);
+    }
+
+    async Task DeleteCurrentFloor()
+    {
+        var floor = floors.FirstOrDefault(f => f.Id == currentFloorId);
+        if (floor == null) return;
+
+        var nodeIds = currentNodes.Select(n => n.Id).ToList();
+        var edgesToDelete = await Db.Edges.Where(e => nodeIds.Contains(e.FromNodeId) || nodeIds.Contains(e.ToNodeId)).ToListAsync();
+        Db.Edges.RemoveRange(edgesToDelete);
+
+        Db.Nodes.RemoveRange(currentNodes);
+
+        Db.Floors.Remove(floor);
+
+        await Db.SaveChangesAsync();
+
+        selectedNode = null;
+        await LoadData();
+    }
+
+    LocationNode? GetNodeAt(int x, int y) => currentNodes.FirstOrDefault(n => n.X == x && n.Y == y);
+    void SelectCell(int x, int y) { selectedX = x; selectedY = y; selectedNode = GetNodeAt(x, y); }
+
+    async Task CreateBuildingStructure()
+    {
+        var b = new Building { Name = newBuildingName, Code = "A" }; Db.Buildings.Add(b); await Db.SaveChangesAsync();
+        Db.Floors.Add(new Floor { Name = newFloorName, LevelNumber = 0, BuildingId = b.Id }); await Db.SaveChangesAsync(); await LoadData();
+    }
+    async Task AddNewFloor()
+    {
+        var cf = floors.FirstOrDefault(f => f.Id == currentFloorId);
+        if (cf == null) return;
+        Db.Floors.Add(new Floor { Name = nextFloorName, LevelNumber = nextLevelNumber, BuildingId = cf.BuildingId });
+        await Db.SaveChangesAsync(); showFloorCreator = false; await LoadData();
+    }
+    async Task CreateNode(NodeType t)
+    {
+        var n = new LocationNode { X = selectedX, Y = selectedY, FloorId = currentFloorId, Type = t, Description = "Punkt", ImageUrl = "/images/placeholder.jpg", BaseOrientation = Direction.Forward };
+        Db.Nodes.Add(n); await Db.SaveChangesAsync(); await LoadNodes(); selectedNode = n;
+    }
+    async Task SaveNode() { if (selectedNode != null) { Db.Nodes.Update(selectedNode); await Db.SaveChangesAsync(); } }
+    async Task DeleteNode()
+    {
+        if (selectedNode != null)
+        {
+            var edges = await Db.Edges.Where(e => e.FromNodeId == selectedNode.Id || e.ToNodeId == selectedNode.Id).ToListAsync();
+            Db.Edges.RemoveRange(edges); Db.Nodes.Remove(selectedNode); await Db.SaveChangesAsync(); selectedNode = null; await LoadNodes();
+        }
+    }
+    bool IsConnectedTo(LocationNode s, int x, int y) { var t = GetNodeAt(x, y); return t != null && s.OutgoingEdges.Any(e => e.ToNodeId == t.Id); }
+    bool HasVerticalConnection(LocationNode s) => s.OutgoingEdges.Any(e => e.IsStairs || e.IsElevator);
+
+    string GetConnBtnClass(int x, int y) => IsConnectedTo(selectedNode!, selectedX + x, selectedY + y) ? "btn-success" : "btn-outline-secondary";
+    async Task ToggleConnection(int x, int y, Direction d)
+    {
+        var t = GetNodeAt(selectedX + x, selectedY + y); if (t == null) return;
+        var e = selectedNode!.OutgoingEdges.FirstOrDefault(e => e.ToNodeId == t.Id);
+        if (e != null) Db.Edges.Remove(e); else Db.Edges.Add(new Edge { FromNodeId = selectedNode.Id, ToNodeId = t.Id, Direction = d, DistanceWeight = 5 });
+        await Db.SaveChangesAsync(); await LoadNodes();
+    }
+    async Task ToggleVert(Direction d)
+    {
+        var cf = floors.First(f => f.Id == currentFloorId);
+        int tl = d == Direction.Up ? cf.LevelNumber + 1 : cf.LevelNumber - 1;
+        var tf = floors.FirstOrDefault(f => f.BuildingId == cf.BuildingId && f.LevelNumber == tl);
+        if (tf == null) return;
+        var tn = await Db.Nodes.FirstOrDefaultAsync(n => n.FloorId == tf.Id && n.X == selectedX && n.Y == selectedY);
+        if (tn == null) { tn = new LocationNode { FloorId = tf.Id, X = selectedX, Y = selectedY, Type = selectedNode!.Type, Description = selectedNode.Description }; Db.Nodes.Add(tn); await Db.SaveChangesAsync(); }
+        var e = selectedNode!.OutgoingEdges.FirstOrDefault(e => e.Direction == d);
+        if (e != null) Db.Edges.Remove(e);
+        else
+        {
+            Db.Edges.Add(new Edge { FromNodeId = selectedNode.Id, ToNodeId = tn.Id, Direction = d, IsStairs = selectedNode.Type == NodeType.Stairs, IsElevator = selectedNode.Type == NodeType.Elevator, DistanceWeight = 10 });
+            if (!await Db.Edges.AnyAsync(ee => ee.FromNodeId == tn.Id && ee.ToNodeId == selectedNode.Id))
+                Db.Edges.Add(new Edge { FromNodeId = tn.Id, ToNodeId = selectedNode.Id, Direction = (d == Direction.Up ? Direction.Down : Direction.Up), IsStairs = selectedNode.Type == NodeType.Stairs, IsElevator = selectedNode.Type == NodeType.Elevator, DistanceWeight = 10 });
+        }
+        await Db.SaveChangesAsync(); await LoadNodes();
+    }
+}
