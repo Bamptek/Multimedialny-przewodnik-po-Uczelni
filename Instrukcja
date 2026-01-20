@@ -1,0 +1,16 @@
+INSTRUKCJA URUCHOMIENIA PROJEKTU
+Temat: Multimedialny Przewodnik po Uczelni (Blazor Server)
+Autor: Bartłomiej Piotrowski, Mateusz Popielski
+
+WYMAGANIA:
+1. Visual Studio 2022 (z zainstalowanym workloadem "ASP.NET and web development").
+2. .NET 8.0 SDK.
+
+JAK URUCHOMIĆ:
+1. Pobierz projekt.
+2. Otwórz plik rozwiązania: "Multimedialny przewodnik po Uczelni.sln" w Visual Studio 2022.
+3. Uruchom projekt.
+
+DANE DO LOGOWANIA (ADMINISTRATOR):
+Login: admin
+Hasło: admin
