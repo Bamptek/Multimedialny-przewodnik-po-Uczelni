@@ -7,9 +7,24 @@
 
 <PageTitle>Wirtualny Spacer</PageTitle>
 
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2 class="h3 text-primary">Wirtualny Spacer</h2>
-    <button class="btn btn-outline-danger" @onclick="ResetToStart" aria-label="Restart">🔄 Start</button>
+<div class="row mb-3 align-items-end">
+    <div class="col-md-8">
+        <h2 class="h3 text-primary mb-0">Wirtualny Spacer</h2>
+    </div>
+    <div class="col-md-4">
+        <label class="small text-muted fw-bold">Skocz do:</label>
+        <select class="form-select form-select-sm shadow-sm" @onchange="JumpToLocation">
+            <option value="0">-- Wybierz miejsce --</option>
+            @foreach (var node in searchableNodes)
+            {
+                <option value="@node.Id">@node.Description (@(node.Floor?.Name ?? "?"))</option>
+            }
+        </select>
+    </div>
+</div>
+
+<div class="mb-3 text-end">
+    <button class="btn btn-outline-danger btn-sm" @onclick="ResetToStart" aria-label="Restart">Wróć na start</button>
 </div>
 
 @if (currentNode != null)
@@ -17,13 +32,20 @@
     <section class="card shadow" tabindex="0" @onkeydown="HandleKeyDown" @ref="container" style="outline: none;">
         <div class="card-header d-flex justify-content-between align-items-center">
             <h3 class="h5 mb-0 text-white">@currentNode.Description</h3>
-            <div class="text-white small">Kierunek patrzenia: @GetOrientationName(currentOrientation)</div>
+            <div class="text-white small">Widok na: @GetOrientationName(currentOrientation)</div>
         </div>
 
         <div class="card-body text-center bg-white">
-
+            
             <figure class="position-relative d-inline-block">
-                <img src="@currentNode.ImageUrl" alt="@currentNode.AltText" class="img-fluid rounded border shadow-sm" style="max-height: 550px;" />
+                <img src="@currentNode.ImageUrl" 
+                     alt="@currentNode.Description" 
+                     class="img-fluid rounded border shadow-sm" 
+                     style="max-height: 550px;" />
+                 
+                 <div class="position-absolute top-0 end-0 m-3 p-2 bg-primary text-white rounded-circle border border-white" style="width:50px;height:50px;opacity:0.9;display:flex;align-items:center;justify-content:center;">
+                     <strong>@GetCompassIcon(currentOrientation)</strong>
+                 </div>
             </figure>
 
             @if (!string.IsNullOrEmpty(currentNode.AudioUrl))
@@ -51,22 +73,19 @@
                                 style="min-width: 200px; padding: 15px; @(isDisabled ? "opacity:0.6;cursor:not-allowed":"")"
                                 @onclick="() => { if(!isDisabled) MoveTo(edge); }"
                                 disabled="@isDisabled">
-
+                            
                             <div class="fs-1 mb-1">@GetButtonIcon(relativeDir)</div>
                             <div class="fw-bold text-uppercase small">@GetButtonLabel(relativeDir)</div>
                             <div class="small mt-1 opacity-75 border-top pt-1">@edge.ToNode.Description</div>
-
-                            @if (isDisabled)
-                            {
-                                <div class="badge bg-danger mt-2">⛔ Schody</div>
-                            }
+                            
+                            @if (isDisabled) { <div class="badge bg-danger mt-2">⛔ Schody</div> }
                         </button>
                     }
                 </div>
             </nav>
         </div>
         <div class="card-footer text-muted small text-center bg-light">
-            Sterowanie: Strzałki | Wózek: <strong>@(UserSession.IsWheelchairMode ? "WŁ" : "WYŁ")</strong>
+            Sterowanie: Strzałki | Wózek: <strong>@(UserSession.IsWheelchairMode?"WŁ":"WYŁ")</strong>
         </div>
     </section>
 }
@@ -77,38 +96,51 @@ else
 
 @code {
     LocationNode? currentNode;
-    int currentOrientation = 0;
+    List<LocationNode> searchableNodes = new();
+    int currentOrientation = 0; 
     ElementReference container;
 
-    protected override async Task OnInitializedAsync()
-    {
+    protected override async Task OnInitializedAsync() {
+        searchableNodes = await Db.Nodes
+            .Include(n => n.Floor)
+            .Where(n => n.Type != NodeType.Corridor) 
+            .OrderBy(n => n.Description)
+            .ToListAsync();
+
         if (UserSession.CurrentNodeId.HasValue) await LoadNode(UserSession.CurrentNodeId.Value);
         else await LoadStartNode();
     }
 
-    protected override async Task OnAfterRenderAsync(bool firstRender) { if (firstRender && currentNode != null) await container.FocusAsync(); }
+    protected override async Task OnAfterRenderAsync(bool firstRender) { 
+        if(firstRender && currentNode!=null) await container.FocusAsync(); 
+    }
 
-    async Task HandleKeyDown(KeyboardEventArgs e)
+    private async Task JumpToLocation(ChangeEventArgs e)
     {
-        if (currentNode == null) return;
-        Direction? moveDir = e.Key switch { "ArrowUp" => Direction.Forward, "ArrowDown" => Direction.Backward, "ArrowLeft" => Direction.Left, "ArrowRight" => Direction.Right, _ => null };
-
-        if (moveDir.HasValue)
+        if (int.TryParse(e.Value?.ToString(), out int nodeId) && nodeId > 0)
         {
-            foreach (var edge in currentNode.OutgoingEdges)
-            {
-                if (UserSession.IsWheelchairMode && edge.IsStairs) continue;
+            await LoadNode(nodeId);
+            await container.FocusAsync();
+        }
+    }
+
+    async Task HandleKeyDown(KeyboardEventArgs e) {
+        if(currentNode==null) return;
+        Direction? moveDir = e.Key switch { "ArrowUp"=>Direction.Forward, "ArrowDown"=>Direction.Backward, "ArrowLeft"=>Direction.Left, "ArrowRight"=>Direction.Right, _=>null };
+        
+        if(moveDir.HasValue) {
+            foreach(var edge in currentNode.OutgoingEdges) {
+                if(UserSession.IsWheelchairMode && edge.IsStairs) continue;
                 var relative = CalculateRelativeDirection(edge.Direction, currentOrientation);
-                if (relative == moveDir.Value) { await MoveTo(edge); return; }
+                if(relative == moveDir.Value) { await MoveTo(edge); return; }
             }
         }
     }
 
-    async Task LoadStartNode()
-    {
-        var sn = await Db.Nodes.Include(n => n.OutgoingEdges).ThenInclude(e => e.ToNode).Include(n => n.Floor).FirstOrDefaultAsync(n => n.Type == NodeType.StartPoint)
-                 ?? await Db.Nodes.Include(n => n.OutgoingEdges).ThenInclude(e => e.ToNode).Include(n => n.Floor).FirstOrDefaultAsync();
-        if (sn != null) await UpdateCurrentNode(sn);
+    async Task LoadStartNode() {
+        var sn = await Db.Nodes.Include(n=>n.OutgoingEdges).ThenInclude(e=>e.ToNode).Include(n=>n.Floor).FirstOrDefaultAsync(n=>n.Type==NodeType.StartPoint) 
+                 ?? await Db.Nodes.Include(n=>n.OutgoingEdges).ThenInclude(e=>e.ToNode).Include(n=>n.Floor).FirstOrDefaultAsync();
+        if(sn!=null) await UpdateCurrentNode(sn);
     }
 
     async Task ResetToStart() => await LoadStartNode();
@@ -121,8 +153,8 @@ else
 
     async Task LoadNode(int id)
     {
-        var node = await Db.Nodes.Include(n => n.OutgoingEdges).ThenInclude(e => e.ToNode).Include(n => n.Floor).FirstOrDefaultAsync(n => n.Id == id);
-        if (node != null) await UpdateCurrentNode(node);
+        var node = await Db.Nodes.Include(n=>n.OutgoingEdges).ThenInclude(e=>e.ToNode).Include(n=>n.Floor).FirstOrDefaultAsync(n=>n.Id==id);
+        if(node!=null) await UpdateCurrentNode(node);
     }
 
     Task UpdateCurrentNode(LocationNode node)
@@ -134,20 +166,19 @@ else
         return Task.CompletedTask;
     }
 
-    int MapDirectionToInt(Direction d) => d switch { Direction.Forward => 0, Direction.Right => 1, Direction.Backward => 2, Direction.Left => 3, _ => 0 };
-
-    Direction CalculateRelativeDirection(Direction absDir, int userOrien)
-    {
-        if (absDir == Direction.Up || absDir == Direction.Down) return absDir;
+    int MapDirectionToInt(Direction d) => d switch { Direction.Forward=>0, Direction.Right=>1, Direction.Backward=>2, Direction.Left=>3, _=>0 };
+    
+    Direction CalculateRelativeDirection(Direction absDir, int userOrien) {
+        if(absDir==Direction.Up || absDir==Direction.Down) return absDir;
         int abs = MapDirectionToInt(absDir);
         int rel = (abs - userOrien + 4) % 4;
-        return rel switch { 0 => Direction.Forward, 1 => Direction.Right, 2 => Direction.Backward, 3 => Direction.Left, _ => Direction.Forward };
+        return rel switch { 0=>Direction.Forward, 1=>Direction.Right, 2=>Direction.Backward, 3=>Direction.Left, _=>Direction.Forward };
     }
 
-    string GetOrientationName(int o) => o switch { 0 => "Północ", 1 => "Wschód", 2 => "Południe", 3 => "Zachód", _ => "" };
-    string GetCompassIcon(int o) => o switch { 0 => "N", 1 => "E", 2 => "S", 3 => "W", _ => "" };
-
-    string GetButtonClass(Direction d) => d switch { Direction.Forward => "btn-success", Direction.Left => "btn-primary", Direction.Right => "btn-primary", Direction.Backward => "btn-outline-danger", Direction.Up => "btn-info text-white", Direction.Down => "btn-info text-white", _ => "btn-secondary" };
-    string GetButtonLabel(Direction d) => d switch { Direction.Forward => "Prosto", Direction.Left => "W Lewo", Direction.Right => "W Prawo", Direction.Backward => "Cofnij", Direction.Up => "Góra", Direction.Down => "Dół", _ => "Idź" };
-    string GetButtonIcon(Direction d) => d switch { Direction.Forward => "⬆", Direction.Left => "⬅", Direction.Right => "➡", Direction.Backward => "⬇", Direction.Up => "↗", Direction.Down => "↘", _ => "⏺" };
+    string GetOrientationName(int o) => o switch { 0=>"Północ", 1=>"Wschód", 2=>"Południe", 3=>"Zachód", _=>"" };
+    string GetCompassIcon(int o) => o switch { 0=>"N", 1=>"E", 2=>"S", 3=>"W", _=>"" };
+    
+    string GetButtonClass(Direction d) => d switch { Direction.Forward=>"btn-success", Direction.Left=>"btn-primary", Direction.Right=>"btn-primary", Direction.Backward=>"btn-outline-danger", Direction.Up=>"btn-info text-white", Direction.Down=>"btn-info text-white", _=>"btn-secondary" };
+    string GetButtonLabel(Direction d) => d switch { Direction.Forward=>"Prosto", Direction.Left=>"W Lewo", Direction.Right=>"W Prawo", Direction.Backward=>"Cofnij", Direction.Up=>"Góra", Direction.Down=>"Dół", _=>"Idź" };
+    string GetButtonIcon(Direction d) => d switch { Direction.Forward=>"⬆", Direction.Left=>"⬅", Direction.Right=>"➡", Direction.Backward=>"⬇", Direction.Up=>"↗", Direction.Down=>"↘", _=>"⏺" };
 }

@@ -48,7 +48,7 @@ namespace Multimedialny_przewodnik_po_Uczelni.Data
                 Type = NodeType.StartPoint,
                 Description = "Wejście Główne",
                 ImageUrl = "/images/wejscie_glowne.jpg",
-                AudioUrl = "",
+                AudioUrl = "/audio/Test.mp3",
                 BaseOrientation = Direction.Forward
             };
             context.Nodes.Add(n_1);
@@ -60,7 +60,7 @@ namespace Multimedialny_przewodnik_po_Uczelni.Data
                 Type = NodeType.Corridor,
                 Description = "Hol przy wejsciu",
                 ImageUrl = "/images/hol.jpg",
-                AudioUrl = "",
+                AudioUrl = "/audio/Test.mp3",
                 BaseOrientation = Direction.Forward
             };
             context.Nodes.Add(n_9);
@@ -361,7 +361,7 @@ namespace Multimedialny_przewodnik_po_Uczelni.Data
                 Description = "Korytarz",
                 ImageUrl = "/images/placeholder.jpg",
                 AudioUrl = "",
-                BaseOrientation = Direction.Backward
+                BaseOrientation = Direction.Left
             };
             context.Nodes.Add(n_34);
             var n_35 = new LocationNode
@@ -510,6 +510,24 @@ namespace Multimedialny_przewodnik_po_Uczelni.Data
             context.Nodes.Add(n_47);
             context.SaveChanges();
 
+            context.Edges.Add(new Edge
+            {
+                FromNode = n_10,
+                ToNode = n_9,
+                Direction = Direction.Backward,
+                DistanceWeight = 10,
+                IsStairs = false,
+                IsElevator = false
+            });
+            context.Edges.Add(new Edge
+            {
+                FromNode = n_12,
+                ToNode = n_11,
+                Direction = Direction.Backward,
+                DistanceWeight = 10,
+                IsStairs = false,
+                IsElevator = false
+            });
             context.Edges.Add(new Edge
             {
                 FromNode = n_12,
