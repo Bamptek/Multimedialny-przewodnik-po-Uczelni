@@ -47,7 +47,7 @@ namespace Multimedialny_przewodnik_po_Uczelni.Data
                 Floor = f_1,
                 Type = NodeType.StartPoint,
                 Description = "Wejście Główne",
-                ImageUrl = "",
+                ImageUrl = "/images/wejscie_glowne.jpg",
                 AudioUrl = "",
                 BaseOrientation = Direction.Forward
             };
@@ -59,7 +59,7 @@ namespace Multimedialny_przewodnik_po_Uczelni.Data
                 Floor = f_1,
                 Type = NodeType.Corridor,
                 Description = "Hol przy wejsciu",
-                ImageUrl = "/images/placeholder.jpg",
+                ImageUrl = "/images/hol.jpg",
                 AudioUrl = "",
                 BaseOrientation = Direction.Forward
             };
@@ -71,7 +71,7 @@ namespace Multimedialny_przewodnik_po_Uczelni.Data
                 Floor = f_1,
                 Type = NodeType.Room,
                 Description = "Portiernia",
-                ImageUrl = "/images/placeholder.jpg",
+                ImageUrl = "/images/portiernia.jpg",
                 AudioUrl = "",
                 BaseOrientation = Direction.Forward
             };
@@ -83,7 +83,7 @@ namespace Multimedialny_przewodnik_po_Uczelni.Data
                 Floor = f_1,
                 Type = NodeType.Corridor,
                 Description = "Korytarz",
-                ImageUrl = "/images/placeholder.jpg",
+                ImageUrl = "/images/kor4.jpg",
                 AudioUrl = "",
                 BaseOrientation = Direction.Left
             };
@@ -95,7 +95,7 @@ namespace Multimedialny_przewodnik_po_Uczelni.Data
                 Floor = f_1,
                 Type = NodeType.Stairs,
                 Description = "Schody przy sekretariacie",
-                ImageUrl = "/images/placeholder.jpg",
+                ImageUrl = "/images/schody_sekretariat.jpg",
                 AudioUrl = "",
                 BaseOrientation = Direction.Forward
             };
@@ -107,7 +107,7 @@ namespace Multimedialny_przewodnik_po_Uczelni.Data
                 Floor = f_2,
                 Type = NodeType.Stairs,
                 Description = "Schody przy sekretariacie",
-                ImageUrl = "",
+                ImageUrl = "/images/placeholder.jpg",
                 AudioUrl = "",
                 BaseOrientation = Direction.Forward
             };
@@ -119,7 +119,7 @@ namespace Multimedialny_przewodnik_po_Uczelni.Data
                 Floor = f_1,
                 Type = NodeType.Room,
                 Description = "Sekretariat",
-                ImageUrl = "/images/placeholder.jpg",
+                ImageUrl = "/images/sekretariat.jpg",
                 AudioUrl = "",
                 BaseOrientation = Direction.Backward
             };
@@ -155,7 +155,7 @@ namespace Multimedialny_przewodnik_po_Uczelni.Data
                 Floor = f_1,
                 Type = NodeType.Corridor,
                 Description = "Korytarz",
-                ImageUrl = "/images/placeholder.jpg",
+                ImageUrl = "/images/kor10.jpg",
                 AudioUrl = "",
                 BaseOrientation = Direction.Left
             };
@@ -167,7 +167,7 @@ namespace Multimedialny_przewodnik_po_Uczelni.Data
                 Floor = f_1,
                 Type = NodeType.Room,
                 Description = "Pokoj nr 22 (wejscie 2)",
-                ImageUrl = "/images/placeholder.jpg",
+                ImageUrl = "/images/p22.jpg",
                 AudioUrl = "",
                 BaseOrientation = Direction.Forward
             };
@@ -179,7 +179,7 @@ namespace Multimedialny_przewodnik_po_Uczelni.Data
                 Floor = f_1,
                 Type = NodeType.Room,
                 Description = "Pokoj nr 2",
-                ImageUrl = "/images/placeholder.jpg",
+                ImageUrl = "/images/p2.jpg",
                 AudioUrl = "",
                 BaseOrientation = Direction.Backward
             };
@@ -479,7 +479,7 @@ namespace Multimedialny_przewodnik_po_Uczelni.Data
                 Floor = f_2,
                 Type = NodeType.Stairs,
                 Description = "Schody przy toaletach",
-                ImageUrl = "",
+                ImageUrl = "/images/placeholder.jpg",
                 AudioUrl = "",
                 BaseOrientation = Direction.Forward
             };
@@ -491,7 +491,7 @@ namespace Multimedialny_przewodnik_po_Uczelni.Data
                 Floor = f_2,
                 Type = NodeType.Elevator,
                 Description = "Winda dla osob z niepelnosprawnosciami",
-                ImageUrl = "",
+                ImageUrl = "/images/placeholder.jpg",
                 AudioUrl = "",
                 BaseOrientation = Direction.Forward
             };
