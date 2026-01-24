@@ -11,7 +11,6 @@ namespace Multimedialny_przewodnik_po_Uczelni.Data
         public DbSet<Floor> Floors { get; set; }
         public DbSet<LocationNode> Nodes { get; set; }
         public DbSet<Edge> Edges { get; set; }
-        public DbSet<Room> Rooms { get; set; }
         public DbSet<User> Users { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
